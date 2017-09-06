@@ -16,6 +16,7 @@ Arduino IDE 1.8.1+ с поддержкой esp8266 2.3.0+ и установле�
 ![scheme](resources/scheme.png)
 
 ## Интеграция с Home-assistant
+```yaml
 script:
   coffee:
     sequence:
@@ -67,3 +68,4 @@ switch:
     payload_on: "1"
     payload_off: "0"
     retain: true
+```
