@@ -1,24 +1,9 @@
+#include "config.h"
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 
 void callback(char* topic, byte* payload, unsigned int length);
-
-// Настраиваем подключение WIFI и MQTT
-#define MQTT_SERVER "MQTT_IP"  // IP адрес MQTT сервера
-const char* ssid = "SSID";  // Имя сети WIFI
-const char* password = "PASSWORD";  // Пароль сети WIFI
-
-// Настраиваем пины для подключения реле и датчика
-const int switchPin1 = D6;
-const int switchPin2 = D7;
-const int switchReed = D5;
-
-// Настраиваем топики управления MQTT 
-char const* switchTopic1 = "home/cmnd/coffee_power";
-char const* switchTopic2 = "home/cmnd/coffee_water";
-char const* switchTopicReed = "home/cmnd/coffee_water_level";
-
 bool oldWaterLevel;
 
 WiFiClient wifiClient;
@@ -26,15 +11,15 @@ PubSubClient client(MQTT_SERVER, 1883, callback, wifiClient);
 
 void setup() {
   // Инициализируем вывод как OUTPUT и устанавливаем в положение выключено
-  pinMode(switchPin1, OUTPUT); // Реле 1
-  digitalWrite(switchPin1, LOW);
+  pinMode(pinPower, OUTPUT); // Реле 1
+  digitalWrite(pinPower, LOW);
 
-  pinMode(switchPin2, OUTPUT); // Реле 2
-  digitalWrite(switchPin2, LOW);
+  pinMode(pinWater, OUTPUT); // Реле 2
+  digitalWrite(pinWater, LOW);
 
-  pinMode(switchReed, INPUT_PULLUP); // Датчик уровня воды
-  oldWaterLevel = !digitalRead(switchReed);
-  ArduinoOTA.setHostname("Delonghi"); // Имя хоста для OTA обновлений
+  pinMode(pinLevel, INPUT_PULLUP); // Датчик уровня воды
+  oldWaterLevel = !digitalRead(pinLevel);
+  ArduinoOTA.setHostname(otahostname);
   ArduinoOTA.begin(); // Инициализируем OTA
 
   // Запускаем вывод отладочной информации
@@ -52,11 +37,11 @@ void setup() {
 
 void loop(){
   // Считываем текущее состояние датчика уровня воды
-  int waterLevel = digitalRead(switchReed);
+  int waterLevel = digitalRead(pinLevel);
   // Если изменилось - записываем и отправляем команду
   if (waterLevel != oldWaterLevel)
   {
-    client.publish("home/cmnd/coffee_water_level", "1");
+    client.publish(cmndLevel, "1");
     oldWaterLevel = waterLevel;
   }
   
@@ -80,43 +65,43 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Topic: ");
   Serial.println(topicStr);
 
-if (topicStr == "home/cmnd/coffee_water_level")
+if (topicStr == cmndLevel)
   {
    if(payload[0] == '1'){
-    if (digitalRead(switchReed)==HIGH)
-      client.publish("home/stat/coffee_water_level", "1");
+    if (digitalRead(pinLevel)==HIGH)
+      client.publish(statLevel, "1");
     else
-      client.publish("home/stat/coffee_water_level", "0");}
+      client.publish(statLevel, "0");}
   }
 
-   else if (topicStr == "home/cmnd/coffee_power") 
+   else if (topicStr == cmndPower) 
     {
      // Включаем реле если получена команда "1" и обновляем статус
      if(payload[0] == '1'){
-       digitalWrite(switchPin1, HIGH);
-       client.publish("home/stat/coffee_power", "1");
+       digitalWrite(pinPower, HIGH);
+       client.publish(statPower, "1");
        }
 
       // Выключаем реле если получена команда "0" и обновляем статус
      else if (payload[0] == '0'){
-       digitalWrite(switchPin1, LOW);
-       client.publish("home/stat/coffee_power", "0");
+       digitalWrite(pinPower, LOW);
+       client.publish(statPower, "0");
        }
      }
 
      // Для добавления поддержки более 2 реле можно скопировать else-if блок
-     else if (topicStr == "home/cmnd/coffee_water") 
+     else if (topicStr == cmndWater) 
      {
      // Включаем реле если получена команда "1" и обновляем статус
      if(payload[0] == '1'){
-       digitalWrite(switchPin2, HIGH);
-       client.publish("home/stat/coffee_water", "1");
+       digitalWrite(pinWater, HIGH);
+       client.publish(statWater, "1");
        }
 
      // Выключаем реле если получена команда "0" и обновляем статус
      else if (payload[0] == '0'){
-       digitalWrite(switchPin2, LOW);
-       client.publish("home/stat/coffee_water", "0");
+       digitalWrite(pinWater, LOW);
+       client.publish(statWater, "0");
        }
      }
 }
@@ -158,9 +143,9 @@ void reconnect() {
       // Подписываемся на топики
       if (client.connect((char*) clientName.c_str(),"mqtt_username", "mqtt_password")) {  // Имя и пароль для MQTT
         Serial.print("\tMQTT Connected");
-        client.subscribe(switchTopic1);
-        client.subscribe(switchTopic2);
-        client.subscribe(switchTopicReed);
+        client.subscribe(cmndPower);
+        client.subscribe(cmndWater);
+        client.subscribe(cmndLevel);
       }
 
       // Выводим отладочную информацию
@@ -180,3 +165,4 @@ String macToStr(const uint8_t* mac){
   }
   return result;
 }
+
